@@ -20,10 +20,13 @@
 body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
 
 .main-layout { display: flex; width: 100%; height: 100%; }
-.timetable-container { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* แก้ไข: ล็อกความสูงคอนเทนเนอร์ไม่ให้ดันล้นหน้าจอ */
+.timetable-container { flex: 1; padding: 24px; height: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 16px; }
+
 .sidebar { width: var(--sidebar-width); background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; }
 
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-shrink: 0; }
 .header h1 { font-size: 22px; font-weight: 700; color: var(--text); }
 .btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; transition: all 0.2s; }
 .btn-primary { background: var(--accent); color: white; }
@@ -32,9 +35,12 @@ body { background: var(--bg); color: var(--text); display: flex; height: 100vh; 
 .btn-secondary:hover { background: var(--border2); }
 .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
 
-/* Timetable */
-.timetable { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.time-header-row { display: flex; background: var(--surface2); border-bottom: 1px solid var(--border); height: 40px; align-items: center; }
+/* แก้ไข: เปิด scroll แนวตั้งด้านใน และยืดเต็มพื้นที่ */
+.timetable { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+
+/* แก้ไข: ตรึงหัวตารางเวลาให้อยู่กับที่ (Sticky) */
+.time-header-row { display: flex; background: var(--surface2); border-bottom: 1px solid var(--border); height: 40px; align-items: center; position: sticky; top: 0; z-index: 10; }
+
 .day-label-col { width: 80px; text-align: center; font-weight: 600; font-size: 13px; color: var(--muted); flex-shrink: 0; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: var(--surface2); }
 .time-slots { display: flex; flex: 1; position: relative; height: 100%; }
 .time-slot-label { flex: 1; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); border-right: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; }
