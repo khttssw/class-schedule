@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดตารางเรียน - แยกเลนเวลาตรงกันอัตโนมัติ</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght=300;400;500;600;700&family=IBM+Plex+Mono:wght=400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F5F0; --surface: #FFFFFF; --surface2: #F2EFE9; --surface3: #EAE7E0;
+  --border: #E0DBD2; --border2: #C4BDB0;
+  --text: #1A1814; --muted: #6E6860; --hint: #B0A99F;
+  --accent: #2B5FA0; --accent2: #1E4678; --accent-bg: #EBF2FA; --accent-light: #D4E5F7;
+  --danger: #B83025; --danger-bg: #FDF1F0; --danger-border: #E8B0AC;
+  --success: #1A6045; --success-bg: #EAF5EF;
+  --sidebar-width: 350px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
+body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+.main-layout { display: flex; width: 100%; height: 100%; }
+.timetable-container { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.sidebar { width: var(--sidebar-width); background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; }
+
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.header h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+.btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface3); color: var(--text); }
+.btn-secondary:hover { background: var(--border2); }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+
+/* Timetable */
+.timetable { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.time-header-row { display: flex; background: var(--surface2); border-bottom: 1px solid var(--border); height: 40px; align-items: center; }
+.day-label-col { width: 80px; text-align: center; font-weight: 600; font-size: 13px; color: var(--muted); flex-shrink: 0; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: var(--surface2); }
+.time-slots { display: flex; flex: 1; position: relative; height: 100%; }
+.time-slot-label { flex: 1; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); border-right: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; }
+
+/* ปรับให้แถววันยืดความสูงตามจำนวนเลนที่ชนกันได้อัตโนมัติ */
+.day-row { display: flex; border-bottom: 1px solid var(--border); min-height: 95px; height: auto; position: relative; background: var(--surface); }
+.day-row:last-child { border-bottom: none; }
+.day-timeline { flex: 1; position: relative; min-height: 95px; height: 100%; background-image: linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px); background-size: calc(100% / 13) 100%; transition: height 0.2s; }
+
+/* คาบเรียน (Period Card) */
+.period-card { position: absolute; border-radius: 6px; padding: 8px; box-sizing: border-box; font-size: 12px; display: flex; flex-direction: column; gap: 2px; transition: all 0.2s; overflow: hidden; }
+.period-card .code { font-weight: 700; font-family: 'IBM Plex Mono', monospace; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.period-card .name { font-size: 11px; line-height: 1.3; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+.period-card .room-info { font-size: 10px; font-weight: 600; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* สไตล์สถานะกลุ่ม */
+.period-card.state-active { background-color: var(--subj-color); color: white; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 3px 6px rgba(0,0,0,0.1); z-index: 5; opacity: 1; }
+.period-card.state-compare { background-color: rgba(255, 255, 255, 0.85); color: var(--text); border: 2px dashed var(--subj-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); z-index: 4; opacity: 0.8; }
+.period-card.state-compare .code { color: var(--subj-color); }
+.period-card.state-compare .room-info { color: var(--muted); }
+
+/* Sidebar */
+.sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.sidebar-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.credit-badge { background: var(--surface); border: 1px solid var(--border2); padding: 4px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; color: var(--accent2); display: inline-flex; align-items: center; gap: 4px; }
+.credit-limit-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 0 4px; }
+.sidebar-instructions { font-size: 11px; color: var(--muted); background: var(--surface); padding: 8px; border-radius: 6px; border: 1px dashed var(--border2); }
+
+.subject-list { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.subject-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; position: relative; transition: all 0.2s; }
+.subject-item.is-checked { border-color: var(--accent); background: var(--surface); box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+
+.subject-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+.subject-check-area { display: flex; align-items: flex-start; gap: 8px; flex: 1; cursor: pointer; }
+.subject-checkbox { margin-top: 3px; transform: scale(1.1); cursor: pointer; }
+.subject-item-info { flex: 1; }
+.subject-item-title { font-weight: 600; font-size: 14px; }
+.subject-item-sub { font-size: 11px; color: var(--muted); }
+.subject-actions { display: flex; gap: 4px; }
+.btn-icon { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; color: var(--muted); }
+.btn-icon:hover { background: var(--surface3); color: var(--text); }
+
+/* Sections */
+.section-list { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.section-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+.section-row:hover { border-color: var(--border2); background: var(--surface2); }
+.section-row.is-active { background: var(--accent-bg); border-color: var(--accent-light); }
+.section-row.is-compare { border-style: dashed; background: #FAF9F6; opacity: 0.85; }
+
+.section-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+.section-radio { cursor: pointer; }
+.section-name { font-size: 13px; font-weight: 700; }
+.section-periods-preview { font-size: 11px; color: var(--muted); }
+.status-badge { font-size: 10px; padding: 2px 4px; border-radius: 3px; font-weight: 600; }
+.badge-active { background: var(--accent); color: white; }
+.badge-compare { background: var(--border2); color: var(--muted); }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+.modal-box { background: var(--surface); border-radius: 12px; width: 680px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); display: flex; flex-direction: column; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--surface2); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full-width { grid-column: span 2; }
+label { font-size: 13px; font-weight: 600; color: var(--muted); }
+input, select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 14px; background: var(--surface); color: var(--text); }
+.modal-section-block { border: 1px solid var(--border2); border-radius: 8px; padding: 12px; background: var(--bg); display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.modal-section-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
+
+/* จัดช่องระบุเวลาแบบ 24h */
+.period-input-row { display: grid; grid-template-columns: 110px 80px 80px 1fr auto; gap: 8px; align-items: center; background: var(--surface); padding: 6px; border-radius: 4px; border: 1px solid var(--border); }
+.p-time-24h { text-align: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+.color-picker-group { display: flex; gap: 8px; margin-top: 4px; }
+.color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+.color-dot.selected { border-color: var(--text); transform: scale(1.1); }
+</style>
+</head>
+<body>
+
+<div class="main-layout">
+  <div class="timetable-container">
+    <div class="header">
+      <h1>ตารางเรียนของฉัน</h1>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="clearAllData()">ล้างข้อมูล</button>
+        <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มวิชาเรียน</button>
+      </div>
+    </div>
+    <div class="timetable">
+      <div class="time-header-row">
+        <div class="day-label-col">วัน / เวลา</div>
+        <div class="time-slots" id="time-slots-header"></div>
+      </div>
+      <div id="timetable-body"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <span>วิชาเรียนทั้งหมด</span>
+        <div class="credit-badge">
+          หน่วยกิต: <span id="current-credits">0</span>/<span id="max-credits-display">22</span>
+          <button class="credit-limit-btn" onclick="setMaxCredits()" title="ตั้งค่าลิมิตหน่วยกิต">⚙️</button>
+        </div>
+      </div>
+      <div class="sidebar-instructions">
+        <b>ระบบแบ่งเลนเวลาชนกัน (Multi-Lane Columns):</b><br>
+        หากมีกลุ่มเรียนที่ **เวลาตรงกันเป๊ะ แต่ต่างห้องเรียน** ระบบจะแยกแถวในวันนั้นออกเป็นชั้นๆ ให้เห็นแบบขนานทันทีโดยไม่วางทับซ้อนกันบังสายตา
+      </div>
+    </div>
+    <div class="subject-list" id="sidebar-subject-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="subject-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title" style="font-weight:700;">เพิ่มวิชาเรียนใหม่</h3>
+      <button class="btn-icon" onclick="closeModal()" style="font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-subject-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>รหัสวิชา</label>
+          <input type="text" id="m-code" placeholder="เช่น MTH101" required>
+        </div>
+        <div class="form-group">
+          <label>หน่วยกิต</label>
+          <input type="number" id="m-credits" placeholder="3" min="1" max="10" value="3">
+        </div>
+        <div class="form-group">
+          <label>ชื่อวิชา (ภาษาไทย)</label>
+          <input type="text" id="m-name-th" placeholder="เช่น แคลคูลัส 1" required>
+        </div>
+        <div class="form-group">
+          <label>ชื่อวิชา (ภาษาอังกฤษ)</label>
+          <input type="text" id="m-name-en">
+        </div>
+        <div class="form-group full-width">
+          <label>สีประจำวิชา</label>
+          <div class="color-picker-group" id="color-picker"></div>
+        </div>
+      </div>
+      <div style="margin-top: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="font-size:14px; color:var(--text); font-weight:700;">กลุ่มเรียนและเวลาเรียน (Sections)</label>
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="addModalSectionNode()">+ เพิ่มกลุ่มเรียน</button>
+        </div>
+        <div id="modal-sections-container"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveSubjectForm()">บันทึกข้อมูล</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const START_MIN = 480, END_MIN = 1260, TOTAL_MIN = END_MIN - START_MIN;
+const DAYS_TH = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+const COLORS = ['#2B5FA0', '#C0392B', '#7B3FA8', '#1A6045', '#D35400', '#27AE60', '#2980B9', '#8E44AD'];
+let selectedColor = COLORS[0];
+
+let subjects = [];
+let sections = [];
+let periods = [];
+
+let maxCredits = 22;
+let checkedSubjectIds = []; 
+let activeSections = {};    
+
+function loadInitialData() {
+  const localSub = localStorage.getItem('sub_data');
+  const localSec = localStorage.getItem('sec_data');
+  const localPer = localStorage.getItem('per_data');
+  const localState = localStorage.getItem('app_state');
+
+  if(localSub) subjects = JSON.parse(localSub);
+  if(localSec) sections = JSON.parse(localSec);
+  if(localPer) periods = JSON.parse(localPer);
+  if(localState) {
+    const state = JSON.parse(localState);
+    maxCredits = state.maxCredits || 22;
+    checkedSubjectIds = state.checkedSubjectIds || [];
+    activeSections = state.activeSections || {};
+  } else if (subjects.length === 0) {
+    // แทนที่ด้วยชุดข้อมูลจากไฟล์ data.txt ที่อัปโหลดมา
+    subjects = [{"id":"s1","code":"CP423221","nameTH":"การเชื่อมต่ออินเทอร์เน็ต","nameEN":"Internetworking","credits":3,"color":"#2B5FA0"},{"id":"s2","code":"CP423324","nameTH":"ความมั่นคงปลอดภัยฐานข้อมูลและเว็บ","nameEN":"Database and Web Security","credits":3,"color":"#C0392B"},{"id":"sub_1779880138923","code":"CP423322","nameTH":"การวิเคราะห์และป้องกันมัลแวร์","nameEN":"Malware Analysis and Protection","credits":3,"color":"#7B3FA8"},{"id":"sub_1779880266162","code":"CP423434","nameTH":"การจัดการเหตุการณ์ความผิดปกติด้านความมั่นคงปลอดภัยไซเบอร์","nameEN":"Cybersecurity Incident Event Handling","credits":3,"color":"#1A6045"},{"id":"sub_1779880354943","code":"CP423531","nameTH":"การตรวจสอบระบบสารสนเทศและความมั่นคงปลอดภัยไซเบอร์","nameEN":"Information System and Cybersecurity Audit","credits":3,"color":"#2B5FA0"},{"id":"sub_1779880437812","code":"CP423431","nameTH":"การโจมตีไซเบอร์อย่างมีจริยธรรม","nameEN":"Ethical Cybersecurity Hacking","credits":3,"color":"#D35400"},{"id":"sub_1779880545568","code":"CP423432","nameTH":"การป้องกันไซเบอร์และการตรวจจับป้องกันการบุกรุก","nameEN":"Cybersecurity Defense and Intrusion Detection/Protection","credits":3,"color":"#27AE60"},{"id":"sub_1779880632736","code":"SC363002","nameTH":"การจัดการเชิงกลยุทธ์เทคโนโลยีสารสนเทศ","nameEN":"Strategic Management of Information Technology","credits":3,"color":"#2980B9"},{"id":"sub_1779880720697","code":"CP423151","nameTH":"มาตรฐานวิชาชีพขั้นพื้นฐานด้านวิทยาการคำนวณ","nameEN":"Computing Career Professional Standards","credits":1,"color":"#2B5FA0"}];
+    
+    sections = [{"id":"sec_s1_0_1779879855234","sid":"s1","group":"1"},{"id":"sec_s1_1_1779879855234","sid":"s1","group":"2"},{"id":"sec_s2_0_1779879974903","sid":"s2","group":"1"},{"id":"sec_s2_1_1779879974903","sid":"s2","group":"2"},{"id":"sec_sub_1779880138923_0_1779880138923","sid":"sub_1779880138923","group":"1"},{"id":"sec_sub_1779880138923_1_1779880138923","sid":"sub_1779880138923","group":"2"},{"id":"sec_sub_1779880266162_0_1779880266162","sid":"sub_1779880266162","group":"1"},{"id":"sec_sub_1779880266162_1_1779880266162","sid":"sub_1779880266162","group":"2"},{"id":"sec_sub_1779880354943_0_1779880354943","sid":"sub_1779880354943","group":"1"},{"id":"sec_sub_1779880437812_0_1779880437812","sid":"sub_1779880437812","group":"1"},{"id":"sec_sub_1779880545568_0_1779880545568","sid":"sub_1779880545568","group":"1"},{"id":"sec_sub_1779880632736_0_1779880632736","sid":"sub_1779880632736","group":"1"},{"id":"sec_sub_1779880720697_0_1779880720697","sid":"sub_1779880720697","group":"1"}];
+    
+    periods = [{"id":"per_sec_s1_0_1779879855234_0_1779879855234","secId":"sec_s1_0_1779879855234","day":2,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_s1_0_1779879855234_1_1779879855234","secId":"sec_s1_0_1779879855234","day":2,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_s1_1_1779879855234_0_1779879855235","secId":"sec_s1_1_1779879855234","day":2,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_s1_1_1779879855234_1_1779879855235","secId":"sec_s1_1_1779879855234","day":2,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_s2_0_1779879974903_0_1779879974903","secId":"sec_s2_0_1779879974903","day":1,"startMin":510,"endMin":630,"building":"9227"},{"id":"per_sec_s2_0_1779879974903_1_1779879974903","secId":"sec_s2_0_1779879974903","day":1,"startMin":630,"endMin":750,"building":"9227(lab)"},{"id":"per_sec_s2_1_1779879974903_0_1779879974903","secId":"sec_s2_1_1779879974903","day":1,"startMin":510,"endMin":630,"building":"9228"},{"id":"per_sec_s2_1_1779879974903_1_1779879974903","secId":"sec_s2_1_1779879974903","day":1,"startMin":630,"endMin":750,"building":"9228(lab)"},{"id":"per_sec_sub_1779880138923_0_1779880138923_0_1779880138923","secId":"sec_sub_1779880138923_0_1779880138923","day":0,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_sub_1779880138923_0_1779880138923_1_1779880138923","secId":"sec_sub_1779880138923_0_1779880138923","day":0,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_sub_1779880138923_1_1779880138923_0_1779880138923","secId":"sec_sub_1779880138923_1_1779880138923","day":0,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880138923_1_1779880138923_1_1779880138923","secId":"sec_sub_1779880138923_1_1779880138923","day":0,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880266162_0_1779880266162_0_1779880266162","secId":"sec_sub_1779880266162_0_1779880266162","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_0_1779880266162_1_1779880266162","secId":"sec_sub_1779880266162_0_1779880266162","day":5,"startMin":600,"endMin":720,"building":"9524(lab)"},{"id":"per_sec_sub_1779880266162_1_1779880266162_0_1779880266162","secId":"sec_sub_1779880266162_1_1779880266162","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_1_1779880266162_1_1779880266162","secId":"sec_sub_1779880266162_1_1779880266162","day":5,"startMin":780,"endMin":900,"building":"9524(lab)"},{"id":"per_sec_sub_1779880354943_0_1779880354943_0_1779880354944","secId":"sec_sub_1779880354943_0_1779880354943","day":0,"startMin":540,"endMin":720,"building":"9527"},{"id":"per_sec_sub_1779880437812_0_1779880437812_0_1779880437813","secId":"sec_sub_1779880437812_0_1779880437812","day":4,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880437812_0_1779880437812_1_1779880437813","secId":"sec_sub_1779880437812_0_1779880437812","day":4,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880545568_0_1779880545568_0_1779880545568","secId":"sec_sub_1779880545568_0_1779880545568","day":1,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880545568_0_1779880545568_1_1779880545568","secId":"sec_sub_1779880545568_0_1779880545568","day":1,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880632736_0_1779880632736_0_1779880632736","secId":"sec_sub_1779880632736_0_1779880632736","day":3,"startMin":540,"endMin":720,"building":"6201"},{"id":"per_sec_sub_1779880720697_0_1779880720697_0_1779880720697","secId":"sec_sub_1779880720697_0_1779880720697","day":0,"startMin":1020,"endMin":1080,"building":"WBA"}];
+    
+    maxCredits = 22;
+    checkedSubjectIds = []; 
+    activeSections = {"s1":"sec_s1_0_1779879855234","s2":"sec_s2_0_1779879974903","sub_1779880138923":"sec_sub_1779880138923_0_1779880138923","sub_1779880266162":"sec_sub_1779880266162_0_1779880266162","sub_1779880354943":"sec_sub_1779880354943_0_1779880354943","sub_1779880437812":"sec_sub_1779880437812_0_1779880437812","sub_1779880545568":"sec_sub_1779880545568_0_1779880545568","sub_1779880632736":"sec_sub_1779880632736_0_1779880632736","sub_1779880720697":"sec_sub_1779880720697_0_1779880720697"};
+  }
+}
+
+function saveToLocalStorage() {
+  localStorage.setItem('sub_data', JSON.stringify(subjects));
+  localStorage.setItem('sec_data', JSON.stringify(sections));
+  localStorage.setItem('per_data', JSON.stringify(periods));
+  localStorage.setItem('app_state', JSON.stringify({ maxCredits, checkedSubjectIds, activeSections }));
+}
+
+function setMaxCredits() {
+  const input = prompt('กำหนดลิมิตหน่วยกิตสูงสุดที่สามารถลงได้ (เช่น 22):', maxCredits);
+  if(input && !isNaN(input) && parseInt(input) > 0) {
+    maxCredits = parseInt(input);
+    saveToLocalStorage();
+    renderAll();
+  }
+}
+
+function calculateCurrentCredits() {
+  let total = 0;
+  checkedSubjectIds.forEach(subId => {
+    const sub = subjects.find(s => s.id === subId);
+    if(sub) total += sub.credits;
+  });
+  return total;
+}
+
+function initTimetableDOM() {
+  const headerContainer = document.getElementById('time-slots-header');
+  headerContainer.innerHTML = '';
+  for(let hour = 8; hour <= 20; hour++) {
+    const slot = document.createElement('div');
+    slot.className = 'time-slot-label';
+    slot.innerText = `${hour.toString().padStart(2, '0')}:00`;
+    headerContainer.appendChild(slot);
+  }
+
+  const bodyContainer = document.getElementById('timetable-body');
+  bodyContainer.innerHTML = '';
+  DAYS_TH.forEach((day, index) => {
+    const row = document.createElement('div');
+    row.className = 'day-row';
+    row.innerHTML = `<div class="day-label-col">${day}</div><div class="day-timeline" id="day-timeline-${index}"></div>`;
+    bodyContainer.appendChild(row);
+  });
+}
+
+/* =========================================================
+   [ALGORITHM] ระบบคำนวณและแบ่งเลนเวลาชนกันอัตโนมัติ (Multi-Lane)
+   ========================================================= */
+function renderSchedule() {
+  // เคลียร์ข้อมูลเก่าบนตารางออกก่อน
+  for(let i=0; i<7; i++) {
+    const tl = document.getElementById(`day-timeline-${i}`);
+    tl.innerHTML = '';
+    tl.style.height = '95px'; // รีเซ็ตความสูงเริ่มต้น
+  }
+
+  // 1. รวบรวมข้อมูลคาบเรียนทั้งหมดของวิชาที่ถูก "ติ๊กเลือกเปิดใช้งาน"
+  let dayItems = [[], [], [], [], [], [], []]; // แยกตระกร้าเก็บเป็นรายวัน 7 วัน
+
+  checkedSubjectIds.forEach(subId => {
+    const subject = subjects.find(s => s.id === subId);
+    if(!subject) return;
+
+    const activeSecId = activeSections[subId];
+    const subSections = sections.filter(s => s.sid === subId);
+
+    subSections.forEach(sec => {
+      const isMain = (sec.id === activeSecId);
+      const stateClass = isMain ? 'state-active' : 'state-compare';
+      const secPeriods = periods.filter(p => p.secId === sec.id);
+
+      secPeriods.forEach(p => {
+        dayItems[p.day].push({
+          period: p,
+          subject: subject,
+          section: sec,
+          stateClass: stateClass
+        });
+      });
+    });
+  });
+
+  // 2. จัดระเบียบคาบเวลาที่ชนกันให้แยกเป็นเลนขนานแนวตั้ง (Column-wise stacking) ในแต่ละวัน
+  for (let day = 0; day < 7; day++) {
+    const currentDayItems = dayItems[day];
+    if (currentDayItems.length === 0) continue;
+
+    // จัดเรียงลำดับ: นำคาบที่เริ่มเรียนก่อนขึ้นก่อน, หากเริ่มพร้อมกัน คาบที่ยาวกว่าขึ้นก่อน
+    currentDayItems.sort((a, b) => {
+      if (a.period.startMin !== b.period.startMin) return a.period.startMin - b.period.startMin;
+      return (b.period.endMin - b.period.startMin) - (a.period.endMin - a.period.startMin);
+    });
+
+    // อัลกอริทึมสร้างเลน (Tracks Allocation)
+    let lanes = []; // อาเรย์สำหรับเก็บสมาชิกในแต่ละเลนย่อย
+
+    currentDayItems.forEach(item => {
+      let assignedLaneIndex = -1;
+
+      // ค้นหาเลนแรกที่ว่าง (ไม่มีคาบเวลาชนกันกับไอเท็มปัจจุบัน)
+      for (let i = 0; i < lanes.length; i++) {
+        let hasOverlap = lanes[i].some(laneItem => {
+          // สูตรตรวจสอบเวลาชนกัน: StartA < EndB และ EndA > StartB
+          return (item.period.startMin < laneItem.period.endMin && item.period.endMin > laneItem.period.startMin);
+        });
+
+        if (!hasOverlap) {
+          assignedLaneIndex = i;
+          break;
+        }
+      }
+
+      // ถ้าทุกเลนที่มีอยู่เต็ม/ชนหมด ให้เปิดเลนใหม่ขึ้นมาด้านล่างเพิ่ม
+      if (assignedLaneIndex === -1) {
+        lanes.push([item]);
+        assignedLaneIndex = lanes.length - 1;
+      } else {
+        lanes[assignedLaneIndex].push(item);
+      }
+
+      item.laneIndex = assignedLaneIndex; // บันทึกว่าไอเท็มนี้ต้องอยู่เลนชั้นที่เท่าไหร่
+    });
+
+    // 3. วาดชิ้นส่วนการ์ดคาบเรียนลงบนตารางจริงตามมิติเลนที่คำนวณได้
+    const laneHeight = 76; // ความสูงคงที่ของการ์ดแต่ละเลน (px)
+    const laneGap = 6;    // ระยะห่างระหว่างเลนย่อย (px)
+    const paddingTop = 8;
+    const totalLanes = Math.max(1, lanes.length);
+
+    // คำนวณขยายส่วนสูงของกล่องวันนั้นๆ ตามจำนวนเลนที่เกิดขึ้นจริง
+    const calculatedTimelineHeight = paddingTop * 2 + totalLanes * laneHeight + (totalLanes - 1) * laneGap;
+    const timelineDOM = document.getElementById(`day-timeline-${day}`);
+    
+    timelineDOM.style.height = `${calculatedTimelineHeight}px`;
+    timelineDOM.parentElement.style.height = 'auto'; // ปลดล็อกความสูงของโครงแถวให้ขยายตาม
+
+    currentDayItems.forEach(item => {
+      const p = item.period;
+      const leftPercent = ((p.startMin - START_MIN) / TOTAL_MIN) * 100;
+      const widthPercent = ((p.endMin - p.startMin) / TOTAL_MIN) * 100;
+      if(leftPercent < 0 || leftPercent > 100 || widthPercent <= 0) return;
+
+      const card = document.createElement('div');
+      card.className = `period-card ${item.stateClass}`;
+      card.style.left = `${leftPercent}%`;
+      card.style.width = `${widthPercent}%`;
+      card.style.setProperty('--subj-color', item.subject.color);
+
+      // คำนวณพิกัดแกน Y (Top) ตามระดับเลนย่อย ไม่ให้วางทับซ้อนปิดบังกัน
+      const cardTopPosition = paddingTop + item.laneIndex * (laneHeight + laneGap);
+      card.style.top = `${cardTopPosition}px`;
+      card.style.height = `${laneHeight}px`;
+
+      card.innerHTML = `
+        <div class="code" title="${item.section.group}">${item.subject.code} (${item.section.group})</div>
+        <div class="name">${item.subject.nameTH}</div>
+        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
+      `;
+      timelineDOM.appendChild(card);
+    });
+  }
+}
+
+function renderSidebar() {
+  const container = document.getElementById('sidebar-subject-list');
+  container.innerHTML = '';
+  
+  const currentCredits = calculateCurrentCredits();
+  document.getElementById('current-credits').innerText = currentCredits;
+  document.getElementById('max-credits-display').innerText = maxCredits;
+
+  const creditDisplay = document.querySelector('.credit-badge');
+  if(currentCredits > maxCredits) {
+    creditDisplay.style.color = 'var(--danger)';
+    creditDisplay.style.borderColor = 'var(--danger-border)';
+    creditDisplay.style.backgroundColor = 'var(--danger-bg)';
+  } else {
+    creditDisplay.style.color = 'var(--accent2)';
+    creditDisplay.style.borderColor = 'var(--border2)';
+    creditDisplay.style.backgroundColor = 'var(--surface)';
+  }
+
+  if(subjects.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:var(--hint); padding:20px; font-size:14px;">ไม่มีข้อมูลวิชาเรียน</div>`;
+    return;
+  }
+
+  subjects.forEach(sub => {
+    const isSubjectChecked = checkedSubjectIds.includes(sub.id);
+    const item = document.createElement('div');
+    item.className = `subject-item ${isSubjectChecked ? 'is-checked' : ''}`;
+    
+    const subSections = sections.filter(sec => sec.sid === sub.id);
+    let sectionRowsHTML = '';
+    
+    subSections.forEach(sec => {
+      const isActive = (activeSections[sub.id] === sec.id);
+      const isCompare = !isActive && isSubjectChecked; 
+      
+      let rowClass = isActive ? 'is-active' : (isCompare ? 'is-compare' : '');
+      let badge = isActive ? '<span class="status-badge badge-active">หลัก</span>' : (isCompare ? '<span class="status-badge badge-compare">เทียบอัตโนมัติ</span>' : '');
+
+      const secPeriods = periods.filter(p => p.secId === sec.id);
+      let periodPreview = secPeriods.length > 0 
+        ? secPeriods.map(p => `${DAYS_TH[p.day].substring(0,3)} ${Math.floor(p.startMin/60).toString().padStart(2,'0')}:${(p.startMin%60).toString().padStart(2,'0')}`).join(', ') 
+        : 'ไม่มีเวลาเรียน';
+
+      sectionRowsHTML += `
+        <div class="section-row ${rowClass}" onclick="setActiveSection('${sub.id}', '${sec.id}')" title="คลิกเพื่อเลือกกลุ่มนี้เป็นหลัก">
+          <div class="section-left">
+            <input type="radio" class="section-radio" name="radio_${sub.id}" ${isActive ? 'checked' : ''} readOnly>
+            <div>
+              <div class="section-name" style="color:${isSubjectChecked ? sub.color : 'var(--text)'};">${sec.group} ${badge}</div>
+              <div class="section-periods-preview">${periodPreview}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    item.innerHTML = `
+      <div class="subject-item-header">
+        <label class="subject-check-area">
+          <input type="checkbox" class="subject-checkbox" ${isSubjectChecked ? 'checked' : ''} onclick="toggleSubjectCheck(event, '${sub.id}')">
+          <div class="subject-item-info">
+            <div class="subject-item-title" style="color:${isSubjectChecked ? sub.color : 'inherit'};">${sub.code} - ${sub.nameTH}</div>
+            <div class="subject-item-sub">${sub.nameEN || ''} (${sub.credits} หน่วยกิต)</div>
+          </div>
+        </label>
+        <div class="subject-actions">
+          <button class="btn-icon" onclick="openEditModal('${sub.id}')">✏️</button>
+          <button class="btn-icon" onclick="deleteSubject('${sub.id}')">🗑️</button>
+        </div>
+      </div>
+      <div class="section-list" style="display: ${isSubjectChecked ? 'flex' : 'none'};">
+        ${sectionRowsHTML || '<div style="font-size:12px; color:var(--hint);">ไม่มีกลุ่มเรียน</div>'}
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function toggleSubjectCheck(event, subId) {
+  const isChecked = event.target.checked;
+  const subject = subjects.find(s => s.id === subId);
+  const currentCredits = calculateCurrentCredits();
+
+  if(isChecked) {
+    if(currentCredits + subject.credits > maxCredits) {
+      alert(`หน่วยกิตรวมจะเกินลิมิตสูงสุดที่ตั้งไว้ (${maxCredits} หน่วยกิต)`);
+      event.target.checked = false;
+      return;
+    }
+    checkedSubjectIds.push(subId);
+    if(!activeSections[subId]) {
+      const subSecs = sections.filter(s => s.sid === subId);
+      if(subSecs.length > 0) activeSections[subId] = subSecs[0].id;
+    }
+  } else {
+    checkedSubjectIds = checkedSubjectIds.filter(id => id !== subId);
+  }
+  saveToLocalStorage();
+  renderAll();
+}
+
+function setActiveSection(subId, secId) {
+  if(!checkedSubjectIds.includes(subId)) {
+    const subject = subjects.find(s => s.id === subId);
+    if(calculateCurrentCredits() + subject.credits > maxCredits) {
+      alert(`หน่วยกิตรวมจะเกินลิมิตสูงสุดที่ตั้งไว้ (${maxCredits} หน่วยกิต)`);
+      return;
+    }
+    checkedSubjectIds.push(subId);
+  }
+  activeSections[subId] = secId;
+  saveToLocalStorage();
+  renderAll();
+}
+
+function renderAll() {
+  renderSchedule();
+  renderSidebar();
+}
+
+/* =========================================================
+   [24h TIME SYSTEM] หน้ากากกรอกเวลาและฟังก์ชันตรวจสอบ
+   ========================================================= */
+function formatTimeInput(input) {
+  let val = input.value.replace(/\D/g, ''); // กรองเอาเฉพาะตัวเลขเท่านั้น
+  if (val.length > 4) val = val.slice(0, 4);
+  if (val.length > 2) {
+    val = val.slice(0, 2) + ':' + val.slice(2); // เติมเครื่องหมาย : ให้ทำงานเสมือน Masking
+  }
+  input.value = val;
+}
+
+function initColorPickerDOM() {
+  const container = document.getElementById('color-picker');
+  container.innerHTML = '';
+  COLORS.forEach(color => {
+    const dot = document.createElement('div');
+    dot.className = `color-dot ${color === selectedColor ? 'selected' : ''}`;
+    dot.style.backgroundColor = color;
+    dot.onclick = () => {
+      document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+      dot.classList.add('selected');
+      selectedColor = color;
+    };
+    container.appendChild(dot);
+  });
+}
+
+function openAddModal() {
+  document.getElementById('modal-title').innerText = "เพิ่มวิชาเรียนใหม่";
+  document.getElementById('edit-subject-id').value = "";
+  document.getElementById('m-code').value = "";
+  document.getElementById('m-name-th').value = "";
+  document.getElementById('m-name-en').value = "";
+  document.getElementById('m-credits').value = "3";
+  selectedColor = COLORS[0];
+  initColorPickerDOM();
+  document.getElementById('modal-sections-container').innerHTML = '';
+  addModalSectionNode();
+  document.getElementById('subject-modal').style.display = 'flex';
+}
+
+function openEditModal(subId) {
+  const sub = subjects.find(s => s.id === subId);
+  if(!sub) return;
+  document.getElementById('modal-title').innerText = "แก้ไขวิชาเรียน";
+  document.getElementById('edit-subject-id').value = sub.id;
+  document.getElementById('m-code').value = sub.code;
+  document.getElementById('m-name-th').value = sub.nameTH;
+  document.getElementById('m-name-en').value = sub.nameEN || '';
+  document.getElementById('m-credits').value = sub.credits;
+  selectedColor = sub.color;
+  initColorPickerDOM();
+
+  const container = document.getElementById('modal-sections-container');
+  container.innerHTML = '';
+  const subSecs = sections.filter(sec => sec.sid === sub.id);
+  subSecs.forEach(sec => {
+    const secBlockId = addModalSectionNode(sec.group);
+    const pContainer = document.getElementById(`periods-container-${secBlockId}`);
+    if(pContainer) pContainer.innerHTML = '';
+    const secPers = periods.filter(p => p.secId === sec.id);
+    secPers.forEach(p => {
+      const startStr = `${Math.floor(p.startMin/60).toString().padStart(2,'0')}:${(p.startMin%60).toString().padStart(2,'0')}`;
+      const endStr = `${Math.floor(p.endMin/60).toString().padStart(2,'0')}:${(p.endMin%60).toString().padStart(2,'0')}`;
+      addPeriodRowNode(secBlockId, p.day, startStr, endStr, p.building);
+    });
+    if(secPers.length === 0) addPeriodRowNode(secBlockId);
+  });
+  if(subSecs.length === 0) addModalSectionNode();
+  document.getElementById('subject-modal').style.display = 'flex';
+}
+
+function addModalSectionNode(groupName = '') {
+  const container = document.getElementById('modal-sections-container');
+  const blockId = 'sec_block_' + Date.now() + Math.random().toString(36).substr(2, 5);
+  const block = document.createElement('div');
+  block.className = 'modal-section-block';
+  block.id = blockId;
+  block.innerHTML = `
+    <div class="modal-section-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label>ชื่อกลุ่มเรียน:</label>
+        <input type="text" class="m-sec-group-name" value="${groupName}" style="padding:4px 8px; width:180px;" placeholder="เช่น กลุ่ม 1 หรือ Sec 102" required>
+      </div>
+      <button type="button" class="btn-danger" style="padding:2px 8px; border-radius:4px;" onclick="document.getElementById('${blockId}').remove()">ลบกลุ่มนี้</button>
+    </div>
+    <div id="periods-container-${blockId}"></div>
+    <div style="margin-top: 4px;">
+      <button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:11px;" onclick="addPeriodRowNode('${blockId}')">+ เพิ่มคาบเวลา</button>
+    </div>
+  `;
+  container.appendChild(block);
+  addPeriodRowNode(blockId);
+  return blockId;
+}
+
+// ปรับปรุงช่องกรอกข้อมูลเวลาให้รองรับ Text Input แบบ 24h อัตโนมัติ
+function addPeriodRowNode(blockId, day = 0, start = '', end = '', room = '') {
+  const container = document.getElementById(`periods-container-${blockId}`);
+  if(!container) return;
+  const rowId = 'per_row_' + Date.now() + Math.random().toString(36).substr(2, 5);
+  let dayOptions = '';
+  DAYS_TH.forEach((d, i) => dayOptions += `<option value="${i}" ${i == day ? 'selected' : ''}>วัน${d}</option>`);
+  
+  const row = document.createElement('div');
+  row.className = 'period-input-row';
+  row.id = rowId;
+  row.innerHTML = `
+    <select class="p-day">${dayOptions}</select>
+    <input type="text" class="p-time-24h p-start" value="${start}" placeholder="08:00" maxlength="5" oninput="formatTimeInput(this)" required>
+    <input type="text" class="p-time-24h p-end" value="${end}" placeholder="09:30" maxlength="5" oninput="formatTimeInput(this)" required>
+    <input type="text" class="p-room" value="${room}" placeholder="ระบุห้องเรียน" style="padding:4px 8px;">
+    <button type="button" class="btn-icon" onclick="document.getElementById('${rowId}').remove()" style="color:var(--danger)">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function saveSubjectForm() {
+  const subIdInput = document.getElementById('edit-subject-id').value;
+  const code = document.getElementById('m-code').value.trim();
+  const nameTH = document.getElementById('m-name-th').value.trim();
+  const nameEN = document.getElementById('m-name-en').value.trim();
+  const credits = parseInt(document.getElementById('m-credits').value) || 3;
+
+  if(!code || !nameTH) { alert('กรุณากรอกรหัสและชื่อวิชา'); return; }
+
+  const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/; // ตรวจความถูกต้องของระบบเวลา 24 ชั่วโมง
+  let tempPeriods = [];
+  let tempSections = [];
+
+  let subjectId = subIdInput || 'sub_' + Date.now();
+
+  const sectionBlocks = document.querySelectorAll('.modal-section-block');
+  if(sectionBlocks.length === 0) { alert('กรุณาเพิ่มกลุ่มเรียนอย่างน้อย 1 กลุ่ม'); return; }
+
+  // ทำการ Validate คัดกรองข้อมูลเวลาก่อนบันทึกจริงทั้งหมด
+  for (let sIdx = 0; sIdx < sectionBlocks.length; sIdx++) {
+    const block = sectionBlocks[sIdx];
+    const groupNameInput = block.querySelector('.m-sec-group-name').value.trim() || `กลุ่ม ${sIdx + 1}`;
+    const sectionId = `sec_${subjectId}_${sIdx}_${Date.now()}`;
+
+    tempSections.push({ id: sectionId, sid: subjectId, group: groupNameInput });
+
+    const periodRows = block.querySelectorAll('.period-input-row');
+    for (let pIdx = 0; pIdx < periodRows.length; pIdx++) {
+      const row = periodRows[pIdx];
+      const day = parseInt(row.querySelector('.p-day').value);
+      const startStr = row.querySelector('.p-start').value.trim();
+      const endStr = row.querySelector('.p-end').value.trim();
+      const room = row.querySelector('.p-room').value.trim();
+
+      if(!startStr || !endStr) continue;
+
+      if (!timeRegex.test(startStr) || !timeRegex.test(endStr)) {
+        alert(`รูปแบบเวลา 24h ในกลุ่ม "${groupNameInput}" คาบที่ ${pIdx + 1} ไม่ถูกต้อง (ระบุช่วง 00:00 - 23:59)`);
+        return;
+      }
+
+      const startMin = parseInt(startStr.split(':')[0]) * 60 + parseInt(startStr.split(':')[1]);
+      const endMin = parseInt(endStr.split(':')[0]) * 60 + parseInt(endStr.split(':')[1]);
+      if(endMin <= startMin) {
+        alert(`เวลาในกลุ่ม "${groupNameInput}" คาบที่ ${pIdx + 1} ไม่ถูกต้อง (เวลาเลิกเรียนต้องมากกว่าเวลาเริ่มเรียน)`);
+        return;
+      }
+
+      tempPeriods.push({ id: `per_${sectionId}_${pIdx}_${Date.now()}`, secId: sectionId, day, startMin, endMin, building: room });
+    }
+  }
+
+  // หากข้อมูลเวลาผ่านการตรวจสอบทั้งหมด จึงทำการเขียนลงฐานข้อมูลหลัก
+  if(!subIdInput) {
+    subjects.push({ id: subjectId, code, nameTH, nameEN, credits, color: selectedColor });
+  } else {
+    const sIndex = subjects.findIndex(s => s.id === subjectId);
+    if(sIndex > -1) subjects[sIndex] = { id: subjectId, code, nameTH, nameEN, credits, color: selectedColor };
+    
+    const oldSecIds = sections.filter(sec => sec.sid === subjectId).map(sec => sec.id);
+    sections = sections.filter(sec => sec.sid !== subjectId);
+    periods = periods.filter(p => !oldSecIds.includes(p.secId));
+  }
+
+  sections.push(...tempSections);
+  periods.push(...tempPeriods);
+
+  // ตรวจสอบความถูกต้องกลุ่มหลักเริ่มต้น
+  if(!activeSections[subjectId] && tempSections.length > 0) {
+    activeSections[subjectId] = tempSections[0].id;
+  } else if(activeSections[subjectId] && !sections.some(s => s.id === activeSections[subjectId])) {
+    activeSections[subjectId] = tempSections.length > 0 ? tempSections[0].id : null;
+  }
+
+  saveToLocalStorage();
+  closeModal();
+  renderAll();
+}
+
+function deleteSubject(subId) {
+  if(confirm('ยืนยันการลบวิชานี้?')) {
+    const relatedSecIds = sections.filter(s => s.sid === subId).map(s => s.id);
+    subjects = subjects.filter(s => s.id !== subId);
+    sections = sections.filter(s => s.sid !== subId);
+    periods = periods.filter(p => !relatedSecIds.includes(p.secId));
+    
+    checkedSubjectIds = checkedSubjectIds.filter(id => id !== subId);
+    delete activeSections[subId];
+
+    saveToLocalStorage();
+    renderAll();
+  }
+}
+
+function clearAllData() {
+  if(confirm('ต้องการล้างข้อมูลทั้งหมดใช่หรือไม่?')) {
+    localStorage.clear();
+    subjects = []; sections = []; periods = []; 
+    checkedSubjectIds = []; activeSections = {};
+    renderAll();
+  }
+}
+
+function closeModal() { document.getElementById('subject-modal').style.display = 'none'; }
+
+window.onload = function() {
+  loadInitialData();
+  initTimetableDOM();
+  renderAll();
+};
+</script>
+</body>
+</html>
