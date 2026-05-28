@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบจัดตารางเรียน</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght=300;400;500;600;700&family=IBM+Plex+Mono:wght=400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --bg: #F7F5F0; --surface: #FFFFFF; --surface2: #F2EFE9; --surface3: #EAE7E0;
@@ -118,6 +120,12 @@ input, select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--b
 .color-picker-group { display: flex; gap: 8px; margin-top: 4px; }
 .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
 .color-dot.selected { border-color: var(--text); transform: scale(1.1); }
+
+/* หน้าต่างตัวเลือกการ Export */
+.export-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: none; align-items: center; justify-content: center; z-index: 200; }
+.export-menu-box { background: var(--surface); border-radius: 10px; width: 320px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.export-btn-option { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+.export-btn-option:hover { background: var(--accent-bg); border-color: var(--accent-light); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -128,6 +136,7 @@ input, select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--b
       <h1>ตารางเรียนของฉัน</h1>
       <div style="display: flex; gap: 8px;">
         <button class="btn btn-secondary" onclick="clearAllData()">ล้างข้อมูล</button>
+        <button class="btn btn-primary" onclick="exportTimetableMenu()" style="background-color: #1A6045;">📊 สรุปตารางเรียน</button>
         <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มวิชาเรียน</button>
       </div>
     </div>
@@ -200,6 +209,16 @@ input, select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--b
       <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveSubjectForm()">บันทึกข้อมูล</button>
     </div>
+  </div>
+</div>
+
+<div class="export-menu-overlay" id="export-menu-modal" onclick="closeExportMenu()">
+  <div class="export-menu-box" onclick="event.stopPropagation()">
+    <h3 style="font-weight: 700; margin-bottom: 4px;">สรุปตารางเรียนของคุณ</h3>
+    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">ระบบจะบันทึกเฉพาะวิชากลุ่มหลักที่คุณเลือกไว้</p>
+    <button class="export-btn-option" onclick="processExport('png')">🖼️ ดาวน์โหลดเป็นรูปภาพ (.PNG)</button>
+    <button class="export-btn-option" onclick="processExport('pdf')">📄 ดาวน์โหลดเป็นเอกสาร (.PDF)</button>
+    <button class="btn btn-secondary" onclick="closeExportMenu()" style="margin-top: 4px; justify-content: center;">ยกเลิก</button>
   </div>
 </div>
 
@@ -751,6 +770,114 @@ function clearAllData() {
 }
 
 function closeModal() { document.getElementById('subject-modal').style.display = 'none'; }
+
+/* =========================================================
+   [EXPORT SYSTEM] ระบบสรุปและส่งออกตารางเรียน (PNG / PDF)
+   ========================================================= */
+function exportTimetableMenu() {
+  // ตรวจสอบก่อนว่ามีการเลือกวิชาไว้หรือไม่
+  if (checkedSubjectIds.length === 0) {
+    alert("กรุณาเลือก (ติ๊กถูก) วิชาเรียนในแถบด้านข้างอย่างน้อย 1 วิชาเพื่อสรุปตาราง");
+    return;
+  }
+  document.getElementById('export-menu-modal').style.display = 'flex';
+}
+
+function closeExportMenu() {
+  document.getElementById('export-menu-modal').style.display = 'none';
+}
+
+function processExport(type) {
+  closeExportMenu();
+  
+  // ชี้เป้าไปที่ Element คอนเทนเนอร์ของตารางเรียน
+  const timetableElement = document.querySelector('.timetable');
+  
+  // ซ่อนการ์ดที่เป็นวิชาเปรียบเทียบ (state-compare) ชั่วคราวด้วย display:none
+  // เพื่อไม่ให้มันกินพื้นที่ใน Layout ระหว่างการ capture ภาพ
+  const compareCards = timetableElement.querySelectorAll('.period-card.state-compare');
+  compareCards.forEach(card => { card.style.display = 'none'; });
+
+  // หลังซ่อน compare cards แล้ว ให้ปรับความสูงของแต่ละ day-row ใหม่
+  // ให้พอดีกับเฉพาะการ์ดที่ยังแสดงอยู่จริง (state-active เท่านั้น)
+  const dayTimelines = timetableElement.querySelectorAll('.day-timeline');
+  const originalTimelineHeights = [];
+  const originalRowHeights = [];
+  dayTimelines.forEach((tl, i) => {
+    originalTimelineHeights.push(tl.style.height);
+    originalRowHeights.push(tl.parentElement.style.height);
+    const activeCards = tl.querySelectorAll('.period-card.state-active');
+    if (activeCards.length === 0) {
+      tl.style.height = '95px';
+      tl.parentElement.style.height = 'auto';
+    } else {
+      // คำนวณความสูงใหม่จากการ์ดที่มองเห็นอยู่จริง
+      let maxBottom = 0;
+      activeCards.forEach(card => {
+        const top = parseFloat(card.style.top) || 0;
+        const h = parseFloat(card.style.height) || 76;
+        maxBottom = Math.max(maxBottom, top + h);
+      });
+      const newH = Math.max(95, maxBottom + 8);
+      tl.style.height = `${newH}px`;
+      tl.parentElement.style.height = 'auto';
+    }
+  });
+
+  // ขยายหน้าต่างตารางชั่วคราวเพื่อให้เห็นครบทุกแถวเวลา ไม่โดนขอบตัดกรณี Scroll ยาว
+  const originalHeight = timetableElement.style.height;
+  const originalOverflow = timetableElement.style.overflowY;
+  timetableElement.style.height = 'auto';
+  timetableElement.style.overflowY = 'visible';
+
+  // ตั้งค่าออปชันสำหรับการแปลงภาพ
+  const options = {
+    scale: 2, // เพิ่มความชัดระดับ 2X ป้องกันภาพเบลอ ตัวอักษรอ่านง่าย
+    useCORS: true,
+    backgroundColor: '#FFFFFF', // พื้นหลังสีขาวสะอาดตาเหมาะแก่การปริ้น
+    logging: false
+  };
+
+  alert("กำลังประมวลผลตารางเรียน กรุณารอสักครู่...");
+
+  html2canvas(timetableElement, options).then(canvas => {
+    // กู้คืนสถานะ CSS ของตารางเรียนกลับมาเป็นปกติหลังถ่ายภาพเสร็จ
+    // กู้คืนสถานะ CSS ของตารางเรียนกลับมาเป็นปกติหลังถ่ายภาพเสร็จ
+    compareCards.forEach(card => { card.style.display = ''; });
+    dayTimelines.forEach((tl, i) => {
+      tl.style.height = originalTimelineHeights[i];
+      tl.parentElement.style.height = originalRowHeights[i];
+    });
+    timetableElement.style.height = originalHeight;
+    timetableElement.style.overflowY = originalOverflow;
+
+    const imgData = canvas.toDataURL('image/png');
+    const fileName = `ตารางเรียน_${Date.now()}`;
+
+    if (type === 'png') {
+      // ดำเนินการสร้างลิงก์ดาวน์โหลดรูปภาพ PNG
+      const downloadLink = document.createElement('a');
+      downloadLink.href = imgData;
+      downloadLink.download = `${fileName}.png`;
+      downloadLink.click();
+    } 
+    else if (type === 'pdf') {
+      // ดำเนินการจัดรูปภาพลงหน้าเอกสาร PDF (ใช้แนวนอน Landscape อิงตามสัดส่วนตารางเรียน)
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width / 2, canvas.height / 2] // อิงขนาดหน้าตามขนาดจริงของตาราง
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`${fileName}.pdf`);
+    }
+  }).catch(error => {
+    console.error("Export error:", error);
+    alert("เกิดข้อผิดพลาดในการสร้างไฟล์ กรุณาลองใหม่อีกครั้ง");
+  });
+}
 
 window.onload = function() {
   loadInitialData();
