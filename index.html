@@ -418,7 +418,7 @@ function renderSchedule() {
       card.style.height = `${laneHeight}px`;
 
       card.innerHTML = `
-        <div class="code" title="${item.section.group}">${item.subject.code} (${item.section.group})</div>
+        <div class="code" title="${item.section.group}">${item.subject.code} (Sec.${item.section.group}) <span style="opacity:0.8;font-weight:400;">${item.subject.credits} น.</span></div>
         <div class="name">${item.subject.nameTH}</div>
         <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
       `;
@@ -859,7 +859,7 @@ function renderScheduleActiveOnly() {
       card.style.top = `${paddingTop + item.laneIndex * (laneHeight + laneGap)}px`;
       card.style.height = `${laneHeight}px`;
       card.innerHTML = `
-        <div class="code" title="${item.section.group}">${item.subject.code} (${item.section.group})</div>
+        <div class="code" title="${item.section.group}">${item.subject.code} (Sec.${item.section.group}) <span style="opacity:0.8;font-weight:400;">${item.subject.credits} น.</span></div>
         <div class="name">${item.subject.nameTH}</div>
         <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
       `;
