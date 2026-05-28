@@ -216,6 +216,7 @@ input, select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--b
   <div class="export-menu-box" onclick="event.stopPropagation()">
     <h3 style="font-weight: 700; margin-bottom: 4px;">สรุปตารางเรียนของคุณ</h3>
     <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">ระบบจะบันทึกเฉพาะวิชากลุ่มหลักที่คุณเลือกไว้</p>
+    <div id="export-subject-summary" style="width:100%; text-align:left; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:10px; display:flex; flex-direction:column; gap:5px;"></div>
     <button class="export-btn-option" onclick="processExport('png')">🖼️ ดาวน์โหลดเป็นรูปภาพ (.PNG)</button>
     <button class="export-btn-option" onclick="processExport('pdf')">📄 ดาวน์โหลดเป็นเอกสาร (.PDF)</button>
     <button class="btn btn-secondary" onclick="closeExportMenu()" style="margin-top: 4px; justify-content: center;">ยกเลิก</button>
@@ -254,13 +255,13 @@ function loadInitialData() {
     // แทนที่ด้วยชุดข้อมูลจากไฟล์ data.txt ที่อัปโหลดมา
     subjects = [{"id":"s1","code":"CP423221","nameTH":"การเชื่อมต่ออินเทอร์เน็ต","nameEN":"Internetworking","credits":3,"color":"#2B5FA0"},{"id":"s2","code":"CP423324","nameTH":"ความมั่นคงปลอดภัยฐานข้อมูลและเว็บ","nameEN":"Database and Web Security","credits":3,"color":"#C0392B"},{"id":"sub_1779880138923","code":"CP423322","nameTH":"การวิเคราะห์และป้องกันมัลแวร์","nameEN":"Malware Analysis and Protection","credits":3,"color":"#7B3FA8"},{"id":"sub_1779880266162","code":"CP423434","nameTH":"การจัดการเหตุการณ์ความผิดปกติด้านความมั่นคงปลอดภัยไซเบอร์","nameEN":"Cybersecurity Incident Event Handling","credits":3,"color":"#1A6045"},{"id":"sub_1779880354943","code":"CP423531","nameTH":"การตรวจสอบระบบสารสนเทศและความมั่นคงปลอดภัยไซเบอร์","nameEN":"Information System and Cybersecurity Audit","credits":3,"color":"#2B5FA0"},{"id":"sub_1779880437812","code":"CP423431","nameTH":"การโจมตีไซเบอร์อย่างมีจริยธรรม","nameEN":"Ethical Cybersecurity Hacking","credits":3,"color":"#D35400"},{"id":"sub_1779880545568","code":"CP423432","nameTH":"การป้องกันไซเบอร์และการตรวจจับป้องกันการบุกรุก","nameEN":"Cybersecurity Defense and Intrusion Detection/Protection","credits":3,"color":"#27AE60"},{"id":"sub_1779880632736","code":"SC363002","nameTH":"การจัดการเชิงกลยุทธ์เทคโนโลยีสารสนเทศ","nameEN":"Strategic Management of Information Technology","credits":3,"color":"#2980B9"},{"id":"sub_1779880720697","code":"CP423151","nameTH":"มาตรฐานวิชาชีพขั้นพื้นฐานด้านวิทยาการคำนวณ","nameEN":"Computing Career Professional Standards","credits":1,"color":"#2B5FA0"}];
     
-    sections = [{"id":"sec_s1_0_1779879855234","sid":"s1","group":"1"},{"id":"sec_s1_1_1779879855234","sid":"s1","group":"2"},{"id":"sec_s2_0_1779879974903","sid":"s2","group":"1"},{"id":"sec_s2_1_1779879974903","sid":"s2","group":"2"},{"id":"sec_sub_1779880138923_0_1779880138923","sid":"sub_1779880138923","group":"1"},{"id":"sec_sub_1779880138923_1_1779880138923","sid":"sub_1779880138923","group":"2"},{"id":"sec_sub_1779880266162_0_1779880266162","sid":"sub_1779880266162","group":"1"},{"id":"sec_sub_1779880266162_1_1779880266162","sid":"sub_1779880266162","group":"2"},{"id":"sec_sub_1779880354943_0_1779880354943","sid":"sub_1779880354943","group":"1"},{"id":"sec_sub_1779880437812_0_1779880437812","sid":"sub_1779880437812","group":"1"},{"id":"sec_sub_1779880545568_0_1779880545568","sid":"sub_1779880545568","group":"1"},{"id":"sec_sub_1779880632736_0_1779880632736","sid":"sub_1779880632736","group":"1"},{"id":"sec_sub_1779880720697_0_1779880720697","sid":"sub_1779880720697","group":"1"}];
+    sections = [{"id":"sec_s1_0_1779957837499","sid":"s1","group":"1","capacity":47},{"id":"sec_s1_1_1779957837500","sid":"s1","group":"2","capacity":30},{"id":"sec_s2_0_1779957855059","sid":"s2","group":"1","capacity":40},{"id":"sec_s2_1_1779957855060","sid":"s2","group":"2","capacity":40},{"id":"sec_sub_1779880138923_0_1779957870237","sid":"sub_1779880138923","group":"1","capacity":47},{"id":"sec_sub_1779880138923_1_1779957870237","sid":"sub_1779880138923","group":"2","capacity":30},{"id":"sec_sub_1779880266162_0_1779957898130","sid":"sub_1779880266162","group":"1","capacity":47},{"id":"sec_sub_1779880266162_1_1779957898130","sid":"sub_1779880266162","group":"2","capacity":30},{"id":"sec_sub_1779880354943_0_1779957917011","sid":"sub_1779880354943","group":"1","capacity":40},{"id":"sec_sub_1779880437812_0_1779957933418","sid":"sub_1779880437812","group":"1","capacity":77},{"id":"sec_sub_1779880545568_0_1779957947998","sid":"sub_1779880545568","group":"1","capacity":77},{"id":"sec_sub_1779880720697_0_1779957963572","sid":"sub_1779880720697","group":"1","capacity":77},{"id":"sec_sub_1779880632736_0_1779958029996","sid":"sub_1779880632736","group":"1","capacity":20}];
     
-    periods = [{"id":"per_sec_s1_0_1779879855234_0_1779879855234","secId":"sec_s1_0_1779879855234","day":2,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_s1_0_1779879855234_1_1779879855234","secId":"sec_s1_0_1779879855234","day":2,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_s1_1_1779879855234_0_1779879855235","secId":"sec_s1_1_1779879855234","day":2,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_s1_1_1779879855234_1_1779879855235","secId":"sec_s1_1_1779879855234","day":2,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_s2_0_1779879974903_0_1779879974903","secId":"sec_s2_0_1779879974903","day":1,"startMin":510,"endMin":630,"building":"9227"},{"id":"per_sec_s2_0_1779879974903_1_1779879974903","secId":"sec_s2_0_1779879974903","day":1,"startMin":630,"endMin":750,"building":"9227(lab)"},{"id":"per_sec_s2_1_1779879974903_0_1779879974903","secId":"sec_s2_1_1779879974903","day":1,"startMin":510,"endMin":630,"building":"9228"},{"id":"per_sec_s2_1_1779879974903_1_1779879974903","secId":"sec_s2_1_1779879974903","day":1,"startMin":630,"endMin":750,"building":"9228(lab)"},{"id":"per_sec_sub_1779880138923_0_1779880138923_0_1779880138923","secId":"sec_sub_1779880138923_0_1779880138923","day":0,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_sub_1779880138923_0_1779880138923_1_1779880138923","secId":"sec_sub_1779880138923_0_1779880138923","day":0,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_sub_1779880138923_1_1779880138923_0_1779880138923","secId":"sec_sub_1779880138923_1_1779880138923","day":0,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880138923_1_1779880138923_1_1779880138923","secId":"sec_sub_1779880138923_1_1779880138923","day":0,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880266162_0_1779880266162_0_1779880266162","secId":"sec_sub_1779880266162_0_1779880266162","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_0_1779880266162_1_1779880266162","secId":"sec_sub_1779880266162_0_1779880266162","day":5,"startMin":600,"endMin":720,"building":"9524(lab)"},{"id":"per_sec_sub_1779880266162_1_1779880266162_0_1779880266162","secId":"sec_sub_1779880266162_1_1779880266162","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_1_1779880266162_1_1779880266162","secId":"sec_sub_1779880266162_1_1779880266162","day":5,"startMin":780,"endMin":900,"building":"9524(lab)"},{"id":"per_sec_sub_1779880354943_0_1779880354943_0_1779880354944","secId":"sec_sub_1779880354943_0_1779880354943","day":0,"startMin":540,"endMin":720,"building":"9527"},{"id":"per_sec_sub_1779880437812_0_1779880437812_0_1779880437813","secId":"sec_sub_1779880437812_0_1779880437812","day":4,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880437812_0_1779880437812_1_1779880437813","secId":"sec_sub_1779880437812_0_1779880437812","day":4,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880545568_0_1779880545568_0_1779880545568","secId":"sec_sub_1779880545568_0_1779880545568","day":1,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880545568_0_1779880545568_1_1779880545568","secId":"sec_sub_1779880545568_0_1779880545568","day":1,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880632736_0_1779880632736_0_1779880632736","secId":"sec_sub_1779880632736_0_1779880632736","day":3,"startMin":540,"endMin":720,"building":"6201"},{"id":"per_sec_sub_1779880720697_0_1779880720697_0_1779880720697","secId":"sec_sub_1779880720697_0_1779880720697","day":0,"startMin":1020,"endMin":1080,"building":"WBA"}];
+    periods = [{"id":"per_sec_s1_0_1779957837499_0_1779879855234","secId":"sec_s1_0_1779957837499","day":2,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_s1_0_1779957837499_1_1779879855234","secId":"sec_s1_0_1779957837499","day":2,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_s1_1_1779957837500_0_1779879855235","secId":"sec_s1_1_1779957837500","day":2,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_s1_1_1779957837500_1_1779879855235","secId":"sec_s1_1_1779957837500","day":2,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_s2_0_1779957855059_0_1779879974903","secId":"sec_s2_0_1779957855059","day":1,"startMin":510,"endMin":630,"building":"9227"},{"id":"per_sec_s2_0_1779957855059_1_1779879974903","secId":"sec_s2_0_1779957855059","day":1,"startMin":630,"endMin":750,"building":"9227(lab)"},{"id":"per_sec_s2_1_1779957855060_0_1779879974903","secId":"sec_s2_1_1779957855060","day":1,"startMin":510,"endMin":630,"building":"9228"},{"id":"per_sec_s2_1_1779957855060_1_1779879974903","secId":"sec_s2_1_1779957855060","day":1,"startMin":630,"endMin":750,"building":"9228(lab)"},{"id":"per_sec_sub_1779880138923_0_1779957870237_0_1779880138923","secId":"sec_sub_1779880138923_0_1779957870237","day":0,"startMin":780,"endMin":900,"building":"9524"},{"id":"per_sec_sub_1779880138923_0_1779957870237_1_1779880138923","secId":"sec_sub_1779880138923_0_1779957870237","day":0,"startMin":900,"endMin":1020,"building":"9524(lab)"},{"id":"per_sec_sub_1779880138923_1_1779957870237_0_1779880138923","secId":"sec_sub_1779880138923_1_1779957870237","day":0,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880138923_1_1779957870237_1_1779880138923","secId":"sec_sub_1779880138923_1_1779957870237","day":0,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880266162_0_1779957898130_0_1779880266162","secId":"sec_sub_1779880266162_0_1779957898130","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_0_1779957898130_1_1779880266162","secId":"sec_sub_1779880266162_0_1779957898130","day":5,"startMin":600,"endMin":720,"building":"9524(lab)"},{"id":"per_sec_sub_1779880266162_1_1779957898130_0_1779880266162","secId":"sec_sub_1779880266162_1_1779957898130","day":3,"startMin":780,"endMin":900,"building":"WBA"},{"id":"per_sec_sub_1779880266162_1_1779957898130_1_1779880266162","secId":"sec_sub_1779880266162_1_1779957898130","day":5,"startMin":780,"endMin":900,"building":"9524(lab)"},{"id":"per_sec_sub_1779880354943_0_1779957917011_0_1779880354944","secId":"sec_sub_1779880354943_0_1779957917011","day":0,"startMin":540,"endMin":720,"building":"9527"},{"id":"per_sec_sub_1779880437812_0_1779957933418_0_1779880437813","secId":"sec_sub_1779880437812_0_1779957933418","day":4,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880437812_0_1779957933418_1_1779880437813","secId":"sec_sub_1779880437812_0_1779957933418","day":4,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880545568_0_1779957947998_0_1779880545568","secId":"sec_sub_1779880545568_0_1779957947998","day":1,"startMin":780,"endMin":900,"building":"9603"},{"id":"per_sec_sub_1779880545568_0_1779957947998_1_1779880545568","secId":"sec_sub_1779880545568_0_1779957947998","day":1,"startMin":900,"endMin":1020,"building":"9603(lab)"},{"id":"per_sec_sub_1779880632736_0_1779958029996_0_1779880632736","secId":"sec_sub_1779880632736_0_1779958029996","day":3,"startMin":540,"endMin":720,"building":"6201"},{"id":"per_sec_sub_1779880720697_0_1779957963572_0_1779880720697","secId":"sec_sub_1779880720697_0_1779957963572","day":0,"startMin":1020,"endMin":1080,"building":"WBA"}];
     
     maxCredits = 22;
     checkedSubjectIds = []; 
-    activeSections = {"s1":"sec_s1_0_1779879855234","s2":"sec_s2_0_1779879974903","sub_1779880138923":"sec_sub_1779880138923_0_1779880138923","sub_1779880266162":"sec_sub_1779880266162_0_1779880266162","sub_1779880354943":"sec_sub_1779880354943_0_1779880354943","sub_1779880437812":"sec_sub_1779880437812_0_1779880437812","sub_1779880545568":"sec_sub_1779880545568_0_1779880545568","sub_1779880632736":"sec_sub_1779880632736_0_1779880632736","sub_1779880720697":"sec_sub_1779880720697_0_1779880720697"};
+    activeSections = {"s1":"sec_s1_0_1779957837499","s2":"sec_s2_0_1779957855059","sub_1779880138923":"sec_sub_1779880138923_0_1779957870237","sub_1779880266162":"sec_sub_1779880266162_0_1779957898130","sub_1779880354943":"sec_sub_1779880354943_0_1779957917011","sub_1779880437812":"sec_sub_1779880437812_0_1779957933418","sub_1779880545568":"sec_sub_1779880545568_0_1779957947998","sub_1779880632736":"sec_sub_1779880632736_0_1779958029996","sub_1779880720697":"sec_sub_1779880720697_0_1779957963572"};
   }
 }
 
@@ -420,7 +421,7 @@ function renderSchedule() {
       card.innerHTML = `
         <div class="code" title="${item.section.group}">${item.subject.code} (Sec.${item.section.group}) <span style="opacity:0.8;font-weight:400;">${item.subject.credits} น.</span></div>
         <div class="name">${item.subject.nameTH}</div>
-        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
+        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}${item.section.capacity ? ` · 👥 ${item.section.capacity}` : ''}</div>
       `;
       timelineDOM.appendChild(card);
     });
@@ -477,7 +478,7 @@ function renderSidebar() {
             <input type="radio" class="section-radio" name="radio_${sub.id}" ${isActive ? 'checked' : ''} readOnly>
             <div>
               <div class="section-name" style="color:${isSubjectChecked ? sub.color : 'var(--text)'};">${sec.group} ${badge}</div>
-              <div class="section-periods-preview">${periodPreview}</div>
+              <div class="section-periods-preview">${periodPreview}${sec.capacity ? ` · รับ ${sec.capacity} คน` : ''}</div>
             </div>
           </div>
         </div>
@@ -606,7 +607,7 @@ function openEditModal(subId) {
   container.innerHTML = '';
   const subSecs = sections.filter(sec => sec.sid === sub.id);
   subSecs.forEach(sec => {
-    const secBlockId = addModalSectionNode(sec.group);
+    const secBlockId = addModalSectionNode(sec.group, sec.capacity || '');
     const pContainer = document.getElementById(`periods-container-${secBlockId}`);
     if(pContainer) pContainer.innerHTML = '';
     const secPers = periods.filter(p => p.secId === sec.id);
@@ -621,7 +622,7 @@ function openEditModal(subId) {
   document.getElementById('subject-modal').style.display = 'flex';
 }
 
-function addModalSectionNode(groupName = '') {
+function addModalSectionNode(groupName = '', capacity = '') {
   const container = document.getElementById('modal-sections-container');
   const blockId = 'sec_block_' + Date.now() + Math.random().toString(36).substr(2, 5);
   const block = document.createElement('div');
@@ -629,9 +630,12 @@ function addModalSectionNode(groupName = '') {
   block.id = blockId;
   block.innerHTML = `
     <div class="modal-section-header">
-      <div style="display:flex; align-items:center; gap:8px;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <label>ชื่อกลุ่มเรียน:</label>
-        <input type="text" class="m-sec-group-name" value="${groupName}" style="padding:4px 8px; width:180px;" placeholder="เช่น กลุ่ม 1 หรือ Sec 102" required>
+        <input type="text" class="m-sec-group-name" value="${groupName}" style="padding:4px 8px; width:150px;" placeholder="เช่น กลุ่ม 1 หรือ Sec 102" required>
+        <label>จำนวนรับ:</label>
+        <input type="number" class="m-sec-capacity" value="${capacity}" min="1" max="999" style="padding:4px 8px; width:80px;" placeholder="เช่น 40">
+        <span style="font-size:11px; color:var(--muted);">คน</span>
       </div>
       <button type="button" class="btn-danger" style="padding:2px 8px; border-radius:4px;" onclick="document.getElementById('${blockId}').remove()">ลบกลุ่มนี้</button>
     </div>
@@ -690,7 +694,8 @@ function saveSubjectForm() {
     const groupNameInput = block.querySelector('.m-sec-group-name').value.trim() || `กลุ่ม ${sIdx + 1}`;
     const sectionId = `sec_${subjectId}_${sIdx}_${Date.now()}`;
 
-    tempSections.push({ id: sectionId, sid: subjectId, group: groupNameInput });
+    const capacityVal = parseInt(block.querySelector('.m-sec-capacity').value) || null;
+    tempSections.push({ id: sectionId, sid: subjectId, group: groupNameInput, capacity: capacityVal });
 
     const periodRows = block.querySelectorAll('.period-input-row');
     for (let pIdx = 0; pIdx < periodRows.length; pIdx++) {
@@ -775,11 +780,40 @@ function closeModal() { document.getElementById('subject-modal').style.display =
    [EXPORT SYSTEM] ระบบสรุปและส่งออกตารางเรียน (PNG / PDF)
    ========================================================= */
 function exportTimetableMenu() {
-  // ตรวจสอบก่อนว่ามีการเลือกวิชาไว้หรือไม่
   if (checkedSubjectIds.length === 0) {
     alert("กรุณาเลือก (ติ๊กถูก) วิชาเรียนในแถบด้านข้างอย่างน้อย 1 วิชาเพื่อสรุปตาราง");
     return;
   }
+
+  // สร้าง summary รายวิชาที่เลือกไว้
+  const summaryEl = document.getElementById('export-subject-summary');
+  summaryEl.innerHTML = '';
+  let totalCredits = 0;
+  checkedSubjectIds.forEach(subId => {
+    const sub = subjects.find(s => s.id === subId);
+    if (!sub) return;
+    const activeSecId = activeSections[subId];
+    const sec = sections.find(s => s.id === activeSecId);
+    if (!sec) return;
+    totalCredits += sub.credits;
+    const capText = sec.capacity ? ` · รับ ${sec.capacity} คน` : '';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:6px; font-size:12px;';
+    row.innerHTML = `
+      <span style="width:10px; height:10px; border-radius:50%; background:${sub.color}; flex-shrink:0; display:inline-block;"></span>
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; color:${sub.color};">${sub.code}</span>
+      <span style="color:var(--muted);">Sec.${sec.group}${capText}</span>
+      <span style="margin-left:auto; color:var(--muted); font-size:11px;">${sub.credits} น.</span>
+    `;
+    summaryEl.appendChild(row);
+  });
+
+  // เส้นแบ่ง + รวมหน่วยกิต
+  const divider = document.createElement('div');
+  divider.style.cssText = 'border-top:1px dashed var(--border2); padding-top:5px; display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text);';
+  divider.innerHTML = `<span>รวมทั้งหมด ${checkedSubjectIds.length} วิชา</span><span>${totalCredits} หน่วยกิต</span>`;
+  summaryEl.appendChild(divider);
+
   document.getElementById('export-menu-modal').style.display = 'flex';
 }
 
@@ -861,7 +895,7 @@ function renderScheduleActiveOnly() {
       card.innerHTML = `
         <div class="code" title="${item.section.group}">${item.subject.code} (Sec.${item.section.group}) <span style="opacity:0.8;font-weight:400;">${item.subject.credits} น.</span></div>
         <div class="name">${item.subject.nameTH}</div>
-        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
+        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}${item.section.capacity ? ` · 👥 ${item.section.capacity}` : ''}</div>
       `;
       timelineDOM.appendChild(card);
     });
