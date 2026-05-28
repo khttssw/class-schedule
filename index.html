@@ -787,69 +787,115 @@ function closeExportMenu() {
   document.getElementById('export-menu-modal').style.display = 'none';
 }
 
-function processExport(type) {
-  closeExportMenu();
-  
-  // ชี้เป้าไปที่ Element คอนเทนเนอร์ของตารางเรียน
-  const timetableElement = document.querySelector('.timetable');
-  
-  // ซ่อนการ์ดที่เป็นวิชาเปรียบเทียบ (state-compare) ชั่วคราวด้วย display:none
-  // เพื่อไม่ให้มันกินพื้นที่ใน Layout ระหว่างการ capture ภาพ
-  const compareCards = timetableElement.querySelectorAll('.period-card.state-compare');
-  compareCards.forEach(card => { card.style.display = 'none'; });
+/* =========================================================
+   [EXPORT HELPER] Render ตารางใหม่เฉพาะ Active Sections ก่อน capture
+   ========================================================= */
+function renderScheduleActiveOnly() {
+  const laneHeight = 76;
+  const laneGap = 6;
+  const paddingTop = 8;
 
-  // หลังซ่อน compare cards แล้ว ให้ปรับความสูงของแต่ละ day-row ใหม่
-  // ให้พอดีกับเฉพาะการ์ดที่ยังแสดงอยู่จริง (state-active เท่านั้น)
-  const dayTimelines = timetableElement.querySelectorAll('.day-timeline');
-  const originalTimelineHeights = [];
-  const originalRowHeights = [];
-  dayTimelines.forEach((tl, i) => {
-    originalTimelineHeights.push(tl.style.height);
-    originalRowHeights.push(tl.parentElement.style.height);
-    const activeCards = tl.querySelectorAll('.period-card.state-active');
-    if (activeCards.length === 0) {
-      tl.style.height = '95px';
-      tl.parentElement.style.height = 'auto';
-    } else {
-      // คำนวณความสูงใหม่จากการ์ดที่มองเห็นอยู่จริง
-      let maxBottom = 0;
-      activeCards.forEach(card => {
-        const top = parseFloat(card.style.top) || 0;
-        const h = parseFloat(card.style.height) || 76;
-        maxBottom = Math.max(maxBottom, top + h);
-      });
-      const newH = Math.max(95, maxBottom + 8);
-      tl.style.height = `${newH}px`;
-      tl.parentElement.style.height = 'auto';
-    }
+  for (let i = 0; i < 7; i++) {
+    const tl = document.getElementById(`day-timeline-${i}`);
+    tl.innerHTML = '';
+    tl.style.height = '95px';
+    tl.parentElement.style.height = 'auto';
+  }
+
+  // รวมเฉพาะ periods ของ active section เท่านั้น
+  let dayItems = [[], [], [], [], [], [], []];
+  checkedSubjectIds.forEach(subId => {
+    const subject = subjects.find(s => s.id === subId);
+    if (!subject) return;
+    const activeSecId = activeSections[subId];
+    if (!activeSecId) return;
+    const activeSec = sections.find(s => s.id === activeSecId);
+    if (!activeSec) return;
+    periods.filter(p => p.secId === activeSecId).forEach(p => {
+      dayItems[p.day].push({ period: p, subject, section: activeSec });
+    });
   });
 
-  // ขยายหน้าต่างตารางชั่วคราวเพื่อให้เห็นครบทุกแถวเวลา ไม่โดนขอบตัดกรณี Scroll ยาว
+  for (let day = 0; day < 7; day++) {
+    const currentDayItems = dayItems[day];
+    if (currentDayItems.length === 0) continue;
+
+    currentDayItems.sort((a, b) => {
+      if (a.period.startMin !== b.period.startMin) return a.period.startMin - b.period.startMin;
+      return (b.period.endMin - b.period.startMin) - (a.period.endMin - a.period.startMin);
+    });
+
+    let lanes = [];
+    currentDayItems.forEach(item => {
+      let assignedLaneIndex = -1;
+      for (let i = 0; i < lanes.length; i++) {
+        const hasOverlap = lanes[i].some(li =>
+          item.period.startMin < li.period.endMin && item.period.endMin > li.period.startMin
+        );
+        if (!hasOverlap) { assignedLaneIndex = i; break; }
+      }
+      if (assignedLaneIndex === -1) { lanes.push([item]); assignedLaneIndex = lanes.length - 1; }
+      else { lanes[assignedLaneIndex].push(item); }
+      item.laneIndex = assignedLaneIndex;
+    });
+
+    const totalLanes = Math.max(1, lanes.length);
+    const calculatedHeight = paddingTop * 2 + totalLanes * laneHeight + (totalLanes - 1) * laneGap;
+    const timelineDOM = document.getElementById(`day-timeline-${day}`);
+    timelineDOM.style.height = `${calculatedHeight}px`;
+    timelineDOM.parentElement.style.height = 'auto';
+
+    currentDayItems.forEach(item => {
+      const p = item.period;
+      const leftPercent = ((p.startMin - START_MIN) / TOTAL_MIN) * 100;
+      const widthPercent = ((p.endMin - p.startMin) / TOTAL_MIN) * 100;
+      if (leftPercent < 0 || leftPercent > 100 || widthPercent <= 0) return;
+
+      const card = document.createElement('div');
+      card.className = 'period-card state-active';
+      card.style.left = `${leftPercent}%`;
+      card.style.width = `${widthPercent}%`;
+      card.style.setProperty('--subj-color', item.subject.color);
+      card.style.top = `${paddingTop + item.laneIndex * (laneHeight + laneGap)}px`;
+      card.style.height = `${laneHeight}px`;
+      card.innerHTML = `
+        <div class="code" title="${item.section.group}">${item.subject.code} (${item.section.group})</div>
+        <div class="name">${item.subject.nameTH}</div>
+        <div class="room-info" title="${p.building || ''}">📍 ${p.building || 'ไม่ระบุห้อง'}</div>
+      `;
+      timelineDOM.appendChild(card);
+    });
+  }
+}
+
+function processExport(type) {
+  closeExportMenu();
+
+  const timetableElement = document.querySelector('.timetable');
+
+  // Re-render ตารางเฉพาะ active sections → ได้ layout ที่ถูกต้องสำหรับ capture
+  renderScheduleActiveOnly();
+
+  // ขยายตารางชั่วคราวเพื่อให้ html2canvas เห็นครบทุกแถว
   const originalHeight = timetableElement.style.height;
   const originalOverflow = timetableElement.style.overflowY;
   timetableElement.style.height = 'auto';
   timetableElement.style.overflowY = 'visible';
 
-  // ตั้งค่าออปชันสำหรับการแปลงภาพ
   const options = {
-    scale: 2, // เพิ่มความชัดระดับ 2X ป้องกันภาพเบลอ ตัวอักษรอ่านง่าย
+    scale: 2,
     useCORS: true,
-    backgroundColor: '#FFFFFF', // พื้นหลังสีขาวสะอาดตาเหมาะแก่การปริ้น
+    backgroundColor: '#FFFFFF',
     logging: false
   };
 
   alert("กำลังประมวลผลตารางเรียน กรุณารอสักครู่...");
 
   html2canvas(timetableElement, options).then(canvas => {
-    // กู้คืนสถานะ CSS ของตารางเรียนกลับมาเป็นปกติหลังถ่ายภาพเสร็จ
-    // กู้คืนสถานะ CSS ของตารางเรียนกลับมาเป็นปกติหลังถ่ายภาพเสร็จ
-    compareCards.forEach(card => { card.style.display = ''; });
-    dayTimelines.forEach((tl, i) => {
-      tl.style.height = originalTimelineHeights[i];
-      tl.parentElement.style.height = originalRowHeights[i];
-    });
+    // กู้คืนสถานะตารางกลับเป็นปกติ (พร้อม compare cards) หลังถ่ายภาพเสร็จ
     timetableElement.style.height = originalHeight;
     timetableElement.style.overflowY = originalOverflow;
+    renderSchedule(); // render กลับมาพร้อม compare เหมือนเดิม
 
     const imgData = canvas.toDataURL('image/png');
     const fileName = `ตารางเรียน_${Date.now()}`;
